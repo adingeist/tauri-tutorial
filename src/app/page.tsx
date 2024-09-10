@@ -21,7 +21,7 @@ import {
   TextField,
   Button,
 } from '@mui/material';
-import { copyFile } from '@tauri-apps/api/fs';
+import { copyFile, removeFile } from '@tauri-apps/api/fs';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
@@ -145,10 +145,28 @@ export default function Home() {
     console.log(`Viewing file: ${filename}`);
   };
 
-  const handleDeleteFile = (filename: string) => {
-    // Implement delete file logic
-    console.log(`Deleting file: ${filename}`);
-    setFiles(files.filter((file) => file.filename !== filename));
+  const handleDeleteFile = async (filename: string) => {
+    try {
+      const filePath = await join(
+        'secrets',
+        repositories[parseInt(selectedRepo)],
+        selectedEnv,
+        selectedRegion,
+        filename
+      );
+      await removeFile(filePath, { dir: BaseDirectory.AppData });
+      console.log(`File ${filename} deleted successfully`);
+      // Refresh the file list
+      setFiles((prevFiles) =>
+        prevFiles.filter((file) => file.filename !== filename)
+      );
+    } catch (error) {
+      console.error(`Error deleting file ${filename}:`, error);
+      await message(`Error deleting file: ${error}`, {
+        title: 'Error',
+        type: 'error',
+      });
+    }
   };
 
   const handleAddFile = async () => {

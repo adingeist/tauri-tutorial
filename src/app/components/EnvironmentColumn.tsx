@@ -12,6 +12,7 @@ import {
   TableRow,
   Paper,
   Button,
+  IconButton,
 } from '@mui/material';
 import { TableCellProps } from '@mui/material';
 import { readDir, createDir, BaseDirectory } from '@tauri-apps/api/fs';
@@ -22,6 +23,7 @@ import { Publish as PublishIcon } from '@mui/icons-material';
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import { listen } from '@tauri-apps/api/event';
 import { copyFile } from '@tauri-apps/api/fs';
+import { VisibilityOutlined as ViewIcon, DeleteOutline as DeleteIcon } from '@mui/icons-material';
 
 export interface FileInfo {
   filename: string;
@@ -269,12 +271,12 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
                 <ScrollableTableCell>{file.filename}</ScrollableTableCell>
                 <ScrollableTableCell>{file.filename}</ScrollableTableCell>
                 <TableCell>
-                  <Button onClick={() => onViewFile(file.filename)}>
-                    View
-                  </Button>
-                  <Button onClick={() => onDeleteFile(file.filename)}>
-                    Delete
-                  </Button>
+                  <IconButton onClick={() => onViewFile(file.filename)} size="small" title="View">
+                    <ViewIcon />
+                  </IconButton>
+                  <IconButton onClick={() => onDeleteFile(file.filename)} size="small" title="Delete">
+                    <DeleteIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}

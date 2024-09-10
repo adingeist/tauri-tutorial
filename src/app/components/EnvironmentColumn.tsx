@@ -28,7 +28,7 @@ import {
   exists,
   removeFile,
 } from '@tauri-apps/api/fs';
-import { join, appDataDir } from '@tauri-apps/api/path';
+import { join, appDataDir, dirname } from '@tauri-apps/api/path';
 import { UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { GetApp as GetAppIcon } from '@mui/icons-material';
 import { Publish as PublishIcon } from '@mui/icons-material';
@@ -39,6 +39,13 @@ import {
   VisibilityOutlined as ViewIcon,
   DeleteOutline as DeleteIcon,
 } from '@mui/icons-material';
+import { save } from '@tauri-apps/api/dialog';
+import { writeBinaryFile } from '@tauri-apps/api/fs';
+import { Command } from '@tauri-apps/api/shell';
+import JSZip from 'jszip';
+import { readBinaryFile } from '@tauri-apps/api/fs';
+import { invoke } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/dialog';
 
 export interface FileInfo {
   filename: string;
@@ -74,6 +81,38 @@ interface EnvironmentColumnProps {
   onViewFile: (filename: string) => void;
   onDeleteFile: (filename: string) => void;
   onAddFile: () => void;
+}
+
+function isSystemFile(filename: string): boolean {
+  const systemFiles = [
+    '.DS_Store',
+    '._',
+    '.AppleDouble',
+    '.LSOverride',
+    'Icon\r',
+    '.Spotlight-V100',
+    '.Trashes',
+    'Thumbs.db',
+    'ehthumbs.db',
+    'ehthumbs_vista.db',
+    'desktop.ini',
+    '$RECYCLE.BIN',
+    'System Volume Information',
+  ];
+
+  const systemDirs = ['.git', '.svn', '.hg', '.CVS', '.vscode', '.idea'];
+
+  return (
+    systemFiles.some(
+      (sf) => filename.startsWith(sf) || filename.toLowerCase() === sf
+    ) ||
+    systemDirs.some((sd) => filename.startsWith(sd + '/')) ||
+    filename.endsWith('~') ||
+    filename.endsWith('.lnk') ||
+    filename.endsWith('.swp') ||
+    filename.endsWith('.swo') ||
+    filename.endsWith('.swn')
+  );
 }
 
 const ScrollableTableCell = ({ children, ...props }: TableCellProps) => (
@@ -198,7 +237,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
         const vaultMapping = await readVaultMapping();
 
         const files: FileInfo[] = entries
-          .filter((entry) => entry.name !== 'vault_mapping.json')
+          .filter((entry) => !isSystemFile(entry.name || ''))
           .map((entry) => {
             const filename = entry.name || 'unknown';
             const mappedSecret = vaultMapping.secrets.find(
@@ -424,6 +463,90 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     }
   };
 
+  const handleExportZip = async () => {
+    try {
+      const zip = new JSZip();
+
+      for (const file of files) {
+        if (!isSystemFile(file.filename)) {
+          const filePath = await join(
+            'secrets',
+            selectedRepo,
+            selectedEnv,
+            selectedRegion,
+            file.filename
+          );
+
+          const binaryContent = await readBinaryFile(filePath, {
+            dir: BaseDirectory.AppData,
+          });
+          zip.file(file.filename, binaryContent);
+        }
+      }
+
+      const zipContent = await zip.generateAsync({ type: 'uint8array' });
+
+      const savePath = await save({
+        filters: [{ name: 'Zip files', extensions: ['zip'] }],
+        defaultPath: `${selectedRepo}-${selectedEnv}.zip`,
+      });
+
+      if (savePath) {
+        await writeBinaryFile(savePath, zipContent);
+
+        try {
+          const savePathParent = await dirname(savePath);
+          await invoke('open_folder', { path: savePathParent });
+        } catch (error) {
+          console.error('Failed to open folder:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error exporting zip:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  const handleImportZip = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'Zip files', extensions: ['zip'] }],
+      });
+
+      if (selected) {
+        const zipPath = selected as string;
+        const zipContent = await readBinaryFile(zipPath);
+        const zip = await JSZip.loadAsync(zipContent);
+
+        for (const [filename, file] of Object.entries(zip.files)) {
+          if (!file.dir && !isSystemFile(filename)) {
+            const content = await file.async('uint8array');
+            const filePath = await join(
+              'secrets',
+              selectedRepo,
+              selectedEnv,
+              selectedRegion,
+              filename
+            );
+            await writeBinaryFile(filePath, content, {
+              dir: BaseDirectory.AppData,
+            });
+          }
+        }
+
+        // Refresh the file list
+        await fetchFiles();
+
+        console.log('Import completed successfully');
+        // You might want to show a success message to the user here
+      }
+    } catch (error) {
+      console.error('Error importing zip:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -601,7 +724,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
             size="small"
             startIcon={<GetAppIcon />}
             sx={{ textTransform: 'none' }}
-            onClick={() => console.log('Export .zip')}
+            onClick={handleExportZip}
           >
             Export .zip
           </Button>
@@ -610,7 +733,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
             size="small"
             startIcon={<PublishIcon />}
             sx={{ textTransform: 'none' }}
-            onClick={() => console.log('Import .zip')}
+            onClick={handleImportZip}
           >
             Import .zip
           </Button>

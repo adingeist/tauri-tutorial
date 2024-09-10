@@ -566,6 +566,11 @@
   resolved "https://registry.yarnpkg.com/@tauri-apps/api/-/api-1.6.0.tgz#745b7e4e26782c3b2ad9510d558fa5bb2cf29186"
   integrity sha512-rqI++FWClU5I2UBp4HXFvl+sBWkdigBkxnpJDQUWttNyG7IZP4FwQGhTNL5EOw0vI8i6eSAJ5frLqO7n7jbJdg==
 
+"@tauri-apps/api@^2.0.0-rc.4":
+  version "2.0.0-rc.4"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/api/-/api-2.0.0-rc.4.tgz#2b4c3493d86382981787c52006c6c9e5bf16bc08"
+  integrity sha512-UNiIhhKG08j4ooss2oEEVexffmWkgkYlC2M3GcX3VPtNsqFgVNL8Mcw/4Y7rO9M9S+ffAMnLOF5ypzyuyb8tyg==
+
 "@tauri-apps/cli-darwin-arm64@1.6.1":
   version "1.6.1"
   resolved "https://registry.yarnpkg.com/@tauri-apps/cli-darwin-arm64/-/cli-darwin-arm64-1.6.1.tgz#a68818c14c0c4c0d799e006c3535c2cd33f0d13d"
@@ -631,6 +636,13 @@
     "@tauri-apps/cli-win32-arm64-msvc" "1.6.1"
     "@tauri-apps/cli-win32-ia32-msvc" "1.6.1"
     "@tauri-apps/cli-win32-x64-msvc" "1.6.1"
+
+"@tauri-apps/plugin-log@^2.0.0-rc.1":
+  version "2.0.0-rc.1"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-log/-/plugin-log-2.0.0-rc.1.tgz#0c5b9b0bced0066190008367e53ddafd6ee56425"
+  integrity sha512-+Tz0zo4FDtC/5j7neeIq5ievgKbUXBV2+X5HtbaR8ZZ2bcksCp8UqeHd6cyyN+FSk4qaU01LIGkuExtxk1h/FA==
+  dependencies:
+    "@tauri-apps/api" "^2.0.0-rc.4"
 
 "@types/json-schema@^7.0.12":
   version "7.0.15"

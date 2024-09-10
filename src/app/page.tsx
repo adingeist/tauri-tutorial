@@ -1,19 +1,24 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { readDir, createDir, removeDir } from '@tauri-apps/api/fs';
+import { join } from '@tauri-apps/api/path';
+import RepositoryColumn from '@/app/components/RepositoryColumn';
+import EnvironmentColumn from '@/app/components/EnvironmentColumn';
+import ConfigColumn from '@/app/components/ConfigColumn';
+import { message } from '@tauri-apps/api/dialog';
+import { invoke } from '@tauri-apps/api/tauri';
+import { BaseDirectory } from '@tauri-apps/api/fs';
 import {
   Box,
-  Typography,
   Grid,
   Dialog,
-  DialogActions,
-  DialogContent,
   DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
   Button,
 } from '@mui/material';
-import RepositoryColumn from '@/app/components/RepositoryColumn';
-import EnvironmentColumn from '@/app/components/EnvironmentColumn';
 
 interface FileInfo {
   filename: string;
@@ -22,6 +27,7 @@ interface FileInfo {
 }
 
 export default function Home() {
+  console.log('Home component rendered');
   const [repositories, setRepositories] = useState<string[]>([]);
   const [selectedRepo, setSelectedRepo] = useState('0');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,9 +44,45 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchRepositories = async () => {
-    // Replace with actual API call
-    const repos = ['Repo1', 'Repo2', 'Repo3'];
-    setRepositories(repos);
+    try {
+      const secretsDir = await join('secrets');
+      const entries = await readDir(secretsDir, { dir: BaseDirectory.AppData });
+      const repos = entries
+        .filter((entry) => entry.children !== undefined)
+        .map((entry) => entry.name as string);
+      setRepositories(repos);
+    } catch (error) {
+      console.error('Error fetching repositories:', error);
+      setRepositories([]);
+    }
+  };
+
+  const addRepository = async (repoName: string) => {
+    try {
+      const repoPath = await join('secrets', repoName);
+      await createDir(repoPath, {
+        dir: BaseDirectory.AppData,
+        recursive: true,
+      });
+      await fetchRepositories(); // Refresh the list
+    } catch (error) {
+      console.error('Error adding repository:', error);
+      throw error;
+    }
+  };
+
+  const deleteRepository = async (repoName: string) => {
+    try {
+      const repoPath = await join('secrets', repoName);
+      await removeDir(repoPath, {
+        dir: BaseDirectory.AppData,
+        recursive: true,
+      });
+      await fetchRepositories(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting repository:', error);
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -64,20 +106,19 @@ export default function Home() {
     setNewRepoName('');
   };
 
-  const handleSaveDialog = () => {
+  const handleSaveDialog = async () => {
     if (dialogMode === 'add') {
-      setRepositories([...repositories, newRepoName]);
+      await addRepository(newRepoName);
     } else if (dialogMode === 'edit' && editingRepoIndex !== null) {
-      const updatedRepositories = [...repositories];
-      updatedRepositories[editingRepoIndex] = newRepoName;
-      setRepositories(updatedRepositories);
+      const oldName = repositories[editingRepoIndex];
+      await deleteRepository(oldName);
+      await addRepository(newRepoName);
     }
     handleCloseDialog();
   };
 
-  const handleDelete = (index: number) => {
-    const updatedRepositories = repositories.filter((_, i) => i !== index);
-    setRepositories(updatedRepositories);
+  const handleDelete = async (index: number) => {
+    await deleteRepository(repositories[index]);
     if (selectedRepo === index.toString()) {
       setSelectedRepo('0');
     }
@@ -116,6 +157,22 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
+  const handleShowFolder = async () => {
+    try {
+      const secretsPath = await invoke('get_secrets_path');
+      await message(`Secrets folder path: ${secretsPath}`, {
+        title: 'Secrets Folder',
+        type: 'info',
+      });
+    } catch (error) {
+      console.error('Error in handleShowFolder:', error);
+      await message(`Error getting secrets folder path: ${error}`, {
+        title: 'Error',
+        type: 'error',
+      });
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <Grid container spacing={3}>
@@ -126,6 +183,7 @@ export default function Home() {
             onSelectRepo={setSelectedRepo}
             onOpenDialog={handleOpenDialog}
             onDelete={handleDelete}
+            onShowFolder={handleShowFolder}
           />
         </Grid>
         <Grid item xs={12} sm={5}>
@@ -144,14 +202,14 @@ export default function Home() {
             )}
         </Grid>
         <Grid item xs={12} sm={4}>
-          <Box
-            sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
-          >
-            <Typography variant="h5" component="h2" gutterBottom>
-              Config
-            </Typography>
-            {/* Add config content here */}
-          </Box>
+          {parseInt(selectedRepo) >= 0 &&
+            parseInt(selectedRepo) < repositories.length && (
+              <ConfigColumn
+                selectedRepo={selectedRepo}
+                repositories={repositories}
+                files={files}
+              />
+            )}
         </Grid>
       </Grid>
 

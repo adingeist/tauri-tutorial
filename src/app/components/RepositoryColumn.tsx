@@ -5,8 +5,10 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  Button,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import RepositoryListItem from './RepositoryListItem';
 
 interface RepositoryColumnProps {
@@ -15,6 +17,7 @@ interface RepositoryColumnProps {
   onSelectRepo: (index: string) => void;
   onOpenDialog: (mode: 'add' | 'edit', index?: number) => void;
   onDelete: (index: number) => void;
+  onShowFolder: () => void;
 }
 
 const RepositoryColumn: React.FC<RepositoryColumnProps> = ({
@@ -23,6 +26,7 @@ const RepositoryColumn: React.FC<RepositoryColumnProps> = ({
   onSelectRepo,
   onOpenDialog,
   onDelete,
+  onShowFolder,
 }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -47,6 +51,14 @@ const RepositoryColumn: React.FC<RepositoryColumnProps> = ({
           </ListItemButton>
         </ListItem>
       </List>
+      <Button
+        variant="outlined"
+        startIcon={<FolderOpenIcon />}
+        onClick={onShowFolder}
+        sx={{ mt: 2 }}
+      >
+        Show Folder
+      </Button>
     </Box>
   );
 };

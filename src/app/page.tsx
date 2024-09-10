@@ -156,10 +156,7 @@ export default function Home() {
       );
       await removeFile(filePath, { dir: BaseDirectory.AppData });
       console.log(`File ${filename} deleted successfully`);
-      // Refresh the file list
-      setFiles((prevFiles) =>
-        prevFiles.filter((file) => file.filename !== filename)
-      );
+      // The EnvironmentColumn component will handle updating the files state and vault_mapping.json
     } catch (error) {
       console.error(`Error deleting file ${filename}:`, error);
       await message(`Error deleting file: ${error}`, {

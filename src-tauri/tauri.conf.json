@@ -18,12 +18,17 @@
         "copyFile": true,
         "renameFile": true,
         "readFile": true,
+        "all": true,
         "exists": true,
         "createDir": true,
         "removeDir": true,
         "removeFile": true,
-        "scope": ["$APPDATA/secrets/**", "$APPDATA/secrets", "/**"]
+        "scope": {
+          "allow": ["**"],
+          "requireLiteralLeadingDot": false
+        }
       },
+      "all": true,
       "path": {
         "all": true
       },

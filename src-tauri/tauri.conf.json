@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
-    "beforeBuildCommand": "yarn run build",
     "beforeDevCommand": "yarn run dev",
+    "beforeBuildCommand": "yarn run build",
     "devPath": "http://localhost:3000",
     "distDir": "../out"
   },
@@ -12,16 +12,19 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false,
+      "fs": {
+        "readDir": true,
+        "writeFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "scope": ["$APPDATA/secrets/**", "$APPDATA/secrets"]
+      },
+      "path": {
+        "all": true
+      },
       "shell": {
         "open": true
-      },
-      "dialog": {
-        "open": true
-      },
-      "fs": {
-        "readFile": true,
-        "scope": ["$APPDATA/*", "$APPDATA/../../*"]
       }
     },
     "bundle": {
@@ -66,10 +69,10 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 768,
         "resizable": true,
-        "title": "tauri-tutorialTauri Tutorial",
-        "width": 800
+        "title": "Carbon Secrets Manager",
+        "width": 1366
       }
     ]
   }

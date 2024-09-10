@@ -15,16 +15,26 @@
       "fs": {
         "readDir": true,
         "writeFile": true,
+        "copyFile": true,
+        "renameFile": true,
+        "readFile": true,
+        "exists": true,
         "createDir": true,
         "removeDir": true,
         "removeFile": true,
-        "scope": ["$APPDATA/secrets/**", "$APPDATA/secrets"]
+        "scope": ["$APPDATA/secrets/**", "$APPDATA/secrets", "/**"]
       },
       "path": {
         "all": true
       },
       "shell": {
         "open": true
+      },
+      "dialog": {
+        "all": true
+      },
+      "os": {
+        "all": true
       }
     },
     "bundle": {

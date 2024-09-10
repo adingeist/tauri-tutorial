@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { readDir, createDir, removeDir } from '@tauri-apps/api/fs';
 import { join } from '@tauri-apps/api/path';
 import RepositoryColumn from '@/app/components/RepositoryColumn';
@@ -21,6 +21,9 @@ import {
   TextField,
   Button,
 } from '@mui/material';
+import { copyFile } from '@tauri-apps/api/fs';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 export default function Home() {
   console.log('Home component rendered');
@@ -37,7 +40,6 @@ export default function Home() {
     { filename: '.env', keyMapping: '', type: 'config' },
     { filename: 'ES_CRT', keyMapping: 'ES_CRT_LOCATION', type: 'secret' },
   ]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchRepositories = async () => {
     try {
@@ -149,20 +151,37 @@ export default function Home() {
     setFiles(files.filter((file) => file.filename !== filename));
   };
 
-  const handleAddFile = () => {
-    fileInputRef.current?.click();
+  const handleAddFile = async () => {
+    console.log('Adding file');
+    // use tauri fs to multi-select files and copy to secrets/<repo>/<env>/<region>/ folder
+    // mutli-select file paths
+    const filePaths = (await invoke('select_files')) as string[];
+    console.log(filePaths);
+    // copy files to secrets/<repo>/<env>/<region>/
+    for (const filePath of filePaths) {
+      const filename = filePath.split('/').pop();
+      if (filename) {
+        const destPath = await join(
+          'secrets',
+          repositories[parseInt(selectedRepo)],
+          selectedEnv,
+          selectedRegion,
+          filename
+        );
+        await copyFile(filePath, destPath, {
+          dir: BaseDirectory.AppData,
+        });
+      }
+    }
   };
 
   const handleShowFolder = async () => {
     try {
       const secretsPath = await invoke('get_secrets_path');
-      await message(`Secrets folder path: ${secretsPath}`, {
-        title: 'Secrets Folder',
-        type: 'info',
-      });
+      await invoke('open_folder', { path: secretsPath });
     } catch (error) {
       console.error('Error in handleShowFolder:', error);
-      await message(`Error getting secrets folder path: ${error}`, {
+      await message(`Error opening secrets folder: ${error}`, {
         title: 'Error',
         type: 'error',
       });
@@ -170,67 +189,71 @@ export default function Home() {
   };
 
   return (
-    <Box sx={{ flexGrow: 1, p: 3 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={3}>
-          <RepositoryColumn
-            repositories={repositories}
-            selectedRepo={selectedRepo}
-            onSelectRepo={setSelectedRepo}
-            onOpenDialog={handleOpenDialog}
-            onDelete={handleDelete}
-            onShowFolder={handleShowFolder}
-          />
+    <DndProvider backend={HTML5Backend}>
+      <Box sx={{ flexGrow: 1, p: 3 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={3}>
+            <RepositoryColumn
+              repositories={repositories}
+              selectedRepo={selectedRepo}
+              onSelectRepo={setSelectedRepo}
+              onOpenDialog={handleOpenDialog}
+              onDelete={handleDelete}
+              onShowFolder={handleShowFolder}
+            />
+          </Grid>
+          <Grid item xs={12} sm={5}>
+            {parseInt(selectedRepo) >= 0 &&
+              parseInt(selectedRepo) < repositories.length && (
+                <EnvironmentColumn
+                  selectedRepo={repositories[parseInt(selectedRepo)]}
+                  selectedEnv={selectedEnv}
+                  selectedRegion={selectedRegion}
+                  files={files}
+                  setFiles={setFiles}
+                  onEnvChange={handleEnvChange}
+                  onRegionChange={handleRegionChange}
+                  onViewFile={handleViewFile}
+                  onDeleteFile={handleDeleteFile}
+                  onAddFile={handleAddFile}
+                />
+              )}
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            {parseInt(selectedRepo) >= 0 &&
+              parseInt(selectedRepo) < repositories.length && (
+                <ConfigColumn
+                  selectedRepo={selectedRepo}
+                  repositories={repositories}
+                  files={files}
+                />
+              )}
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={5}>
-          {parseInt(selectedRepo) >= 0 &&
-            parseInt(selectedRepo) < repositories.length && (
-              <EnvironmentColumn
-                selectedRepo={repositories[parseInt(selectedRepo)]}
-                selectedEnv={selectedEnv}
-                selectedRegion={selectedRegion}
-                files={files}
-                setFiles={setFiles}
-                onEnvChange={handleEnvChange}
-                onRegionChange={handleRegionChange}
-                onViewFile={handleViewFile}
-                onDeleteFile={handleDeleteFile}
-                onAddFile={handleAddFile}
-              />
-            )}
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          {parseInt(selectedRepo) >= 0 &&
-            parseInt(selectedRepo) < repositories.length && (
-              <ConfigColumn
-                selectedRepo={selectedRepo}
-                repositories={repositories}
-                files={files}
-              />
-            )}
-        </Grid>
-      </Grid>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>
-          {dialogMode === 'add' ? 'Add New Repository' : 'Edit Repository Name'}
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Repository Name"
-            type="text"
-            fullWidth
-            value={newRepoName}
-            onChange={(e) => setNewRepoName(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSaveDialog}>Save</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        <Dialog open={dialogOpen} onClose={handleCloseDialog}>
+          <DialogTitle>
+            {dialogMode === 'add'
+              ? 'Add New Repository'
+              : 'Edit Repository Name'}
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="Repository Name"
+              type="text"
+              fullWidth
+              value={newRepoName}
+              onChange={(e) => setNewRepoName(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleSaveDialog}>Save</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </DndProvider>
   );
 }

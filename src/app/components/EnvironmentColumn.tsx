@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -20,6 +20,8 @@ import { UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { GetApp as GetAppIcon } from '@mui/icons-material';
 import { Publish as PublishIcon } from '@mui/icons-material';
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
+import { listen } from '@tauri-apps/api/event';
+import { copyFile } from '@tauri-apps/api/fs';
 
 export interface FileInfo {
   filename: string;
@@ -78,6 +80,8 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   onDeleteFile,
   onAddFile,
 }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
   const ensureDirectoryExists = async (path: string) => {
     console.log('ensureDirectoryExists', path);
     try {
@@ -124,8 +128,73 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     fetchFiles();
   }, [selectedRepo, selectedEnv, selectedRegion, fetchFiles]);
 
+  const handleFileDrop = useCallback(
+    async (filepaths: string[]) => {
+      console.log('handleFileDrop', filepaths);
+      for (const filepath of filepaths) {
+        try {
+          const filename = filepath.split('/').pop() || 'unknown';
+          const destPath = await join(
+            'secrets',
+            selectedRepo,
+            selectedEnv,
+            selectedRegion,
+            filename
+          );
+          await copyFile(filepath, destPath, {
+            dir: BaseDirectory.AppData,
+          });
+          console.log(`File ${filename} copied successfully`);
+        } catch (error) {
+          console.error(`Error copying file ${filepath}:`, error);
+        }
+      }
+      fetchFiles();
+    },
+    [selectedRepo, selectedEnv, selectedRegion, fetchFiles]
+  );
+
+  useEffect(() => {
+    let dragCounter = 0;
+
+    const unlistenFileDrop = listen('tauri://file-drop', (event: any) => {
+      console.log('File drop event:', event);
+      setIsDragging(false);
+      if (event.payload) {
+        handleFileDrop(event.payload);
+      }
+    });
+
+    const unlistenFileDragEnter = listen('tauri://file-drop-hover', () => {
+      dragCounter++;
+      setIsDragging(true);
+    });
+
+    const unlistenFileDragLeave = listen('tauri://file-drop-cancelled', () => {
+      dragCounter--;
+      if (dragCounter === 0) {
+        setIsDragging(false);
+      }
+    });
+
+    return () => {
+      unlistenFileDrop.then((f) => f());
+      unlistenFileDragEnter.then((f) => f());
+      unlistenFileDragLeave.then((f) => f());
+    };
+  }, [handleFileDrop]);
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        padding: 2,
+        border: isDragging ? '2px dashed #007FFF' : 'none',
+        transition: 'border 0.2s ease-in-out',
+      }}
+    >
       <Typography variant="h5" component="h2" gutterBottom>
         Environment
       </Typography>

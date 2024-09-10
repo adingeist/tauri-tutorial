@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,29 +11,28 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
   Button,
 } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import DeleteIcon from '@mui/icons-material/Delete';
-import {
-  UploadFile as UploadFileIcon,
-  GetApp as GetAppIcon,
-  Publish as PublishIcon,
-  CloudUpload as CloudUploadIcon,
-} from '@mui/icons-material';
 import { TableCellProps } from '@mui/material';
+import { readDir, createDir, BaseDirectory } from '@tauri-apps/api/fs';
+import { join } from '@tauri-apps/api/path';
+import { UploadFile as UploadFileIcon } from '@mui/icons-material';
+import { GetApp as GetAppIcon } from '@mui/icons-material';
+import { Publish as PublishIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 
-interface FileInfo {
+export interface FileInfo {
   filename: string;
   keyMapping: string;
   type: 'secret' | 'config';
 }
 
 interface EnvironmentColumnProps {
+  selectedRepo: string;
   selectedEnv: string;
   selectedRegion: string;
   files: FileInfo[];
+  setFiles: React.Dispatch<React.SetStateAction<FileInfo[]>>;
   onEnvChange: (
     event: React.MouseEvent<HTMLElement>,
     newEnv: string | null
@@ -68,15 +67,63 @@ const ScrollableTableCell = ({ children, ...props }: TableCellProps) => (
 );
 
 const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
+  selectedRepo,
   selectedEnv,
   selectedRegion,
   files,
+  setFiles,
   onEnvChange,
   onRegionChange,
   onViewFile,
   onDeleteFile,
   onAddFile,
 }) => {
+  const ensureDirectoryExists = async (path: string) => {
+    console.log('ensureDirectoryExists', path);
+    try {
+      await createDir(path, { dir: BaseDirectory.AppData, recursive: true });
+    } catch (error) {
+      // If the error is because the directory already exists, we can ignore it
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes('already exists')
+      ) {
+        throw error;
+      }
+    }
+  };
+
+  const fetchFiles = useCallback(async () => {
+    if (selectedRepo && selectedEnv && selectedRegion) {
+      try {
+        const path = await join(
+          'secrets',
+          selectedRepo,
+          selectedEnv,
+          selectedRegion
+        );
+        await ensureDirectoryExists(path);
+        const entries = await readDir(path, {
+          dir: BaseDirectory.AppData,
+          recursive: false,
+        });
+        const files: FileInfo[] = entries.map((entry) => ({
+          filename: entry.name || 'unknown',
+          keyMapping: entry.name || 'unknown',
+          type: 'secret',
+        }));
+        setFiles(files);
+      } catch (error) {
+        console.error('Error fetching files:', error);
+        setFiles([]);
+      }
+    }
+  }, [selectedRepo, selectedEnv, selectedRegion, setFiles]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [selectedRepo, selectedEnv, selectedRegion, fetchFiles]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Typography variant="h5" component="h2" gutterBottom>
@@ -142,35 +189,23 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
               <TableCell width="35%">
                 <strong>Key Mapping</strong>
               </TableCell>
-              <TableCell width="15%">
-                <strong>Type</strong>
-              </TableCell>
-              <TableCell width="15%">
+              <TableCell width="30%">
                 <strong>Actions</strong>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {files.map((file) => (
-              <TableRow key={file.filename}>
+            {files.map((file, index) => (
+              <TableRow key={index}>
                 <ScrollableTableCell>{file.filename}</ScrollableTableCell>
-                <ScrollableTableCell>{file.keyMapping}</ScrollableTableCell>
-                <TableCell>{file.type}</TableCell>
-                <TableCell sx={{ p: 0, textAlign: 'center' }}>
-                  <IconButton
-                    onClick={() => onViewFile(file.filename)}
-                    size="small"
-                    sx={{ p: 0.25 }}
-                  >
-                    <VisibilityIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                  <IconButton
-                    onClick={() => onDeleteFile(file.filename)}
-                    size="small"
-                    sx={{ p: 0.25 }}
-                  >
-                    <DeleteIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
+                <ScrollableTableCell>{file.filename}</ScrollableTableCell>
+                <TableCell>
+                  <Button onClick={() => onViewFile(file.filename)}>
+                    View
+                  </Button>
+                  <Button onClick={() => onDeleteFile(file.filename)}>
+                    Delete
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { readDir, createDir, removeDir } from '@tauri-apps/api/fs';
 import { join } from '@tauri-apps/api/path';
 import RepositoryColumn from '@/app/components/RepositoryColumn';
-import EnvironmentColumn from '@/app/components/EnvironmentColumn';
+import EnvironmentColumn, {
+  FileInfo,
+} from '@/app/components/EnvironmentColumn';
 import ConfigColumn from '@/app/components/ConfigColumn';
 import { message } from '@tauri-apps/api/dialog';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -19,12 +21,6 @@ import {
   TextField,
   Button,
 } from '@mui/material';
-
-interface FileInfo {
-  filename: string;
-  keyMapping: string;
-  type: 'secret' | 'config';
-}
 
 export default function Home() {
   console.log('Home component rendered');
@@ -190,9 +186,11 @@ export default function Home() {
           {parseInt(selectedRepo) >= 0 &&
             parseInt(selectedRepo) < repositories.length && (
               <EnvironmentColumn
+                selectedRepo={repositories[parseInt(selectedRepo)]}
                 selectedEnv={selectedEnv}
                 selectedRegion={selectedRegion}
                 files={files}
+                setFiles={setFiles}
                 onEnvChange={handleEnvChange}
                 onRegionChange={handleRegionChange}
                 onViewFile={handleViewFile}

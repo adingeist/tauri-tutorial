@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { readDir, createDir, removeDir } from '@tauri-apps/api/fs';
+import {
+  readDir,
+  createDir,
+  removeDir,
+  writeTextFile,
+} from '@tauri-apps/api/fs';
 import { join } from '@tauri-apps/api/path';
 import RepositoryColumn from '@/app/components/RepositoryColumn';
 import EnvironmentColumn, {
@@ -24,6 +29,7 @@ import {
 import { copyFile, removeFile } from '@tauri-apps/api/fs';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import FileEditModal from '@/app/components/FileEditModal';
 
 export default function Home() {
   console.log('Home component rendered');
@@ -40,6 +46,8 @@ export default function Home() {
     { filename: '.env', keyMapping: '', type: 'config' },
     { filename: 'ES_CRT', keyMapping: 'ES_CRT_LOCATION', type: 'secret' },
   ]);
+  const [fileEditModalOpen, setFileEditModalOpen] = useState(false);
+  const [editingFile, setEditingFile] = useState<string | null>(null);
 
   const fetchRepositories = async () => {
     try {
@@ -141,8 +149,57 @@ export default function Home() {
   };
 
   const handleViewFile = (filename: string) => {
-    // Implement view file logic
-    console.log(`Viewing file: ${filename}`);
+    setEditingFile(filename);
+    setFileEditModalOpen(true);
+  };
+
+  const handleSaveFile = async (newFilename: string, newContent: string) => {
+    if (editingFile) {
+      try {
+        const oldFilePath = await join(
+          'secrets',
+          repositories[parseInt(selectedRepo)],
+          selectedEnv,
+          selectedRegion,
+          editingFile
+        );
+        const newFilePath = await join(
+          'secrets',
+          repositories[parseInt(selectedRepo)],
+          selectedEnv,
+          selectedRegion,
+          newFilename
+        );
+
+        // Write new content
+        await writeTextFile(newFilePath, newContent, {
+          dir: BaseDirectory.AppData,
+        });
+
+        // Delete old file if the filename has changed
+        if (editingFile !== newFilename) {
+          await removeFile(oldFilePath, { dir: BaseDirectory.AppData });
+        }
+
+        // Update files state
+        setFiles((prevFiles) =>
+          prevFiles.map((file) =>
+            file.filename === editingFile
+              ? { ...file, filename: newFilename }
+              : file
+          )
+        );
+
+        setFileEditModalOpen(false);
+        setEditingFile(null);
+      } catch (error) {
+        console.error('Error saving file:', error);
+        await message(`Error saving file: ${error}`, {
+          title: 'Error',
+          type: 'error',
+        });
+      }
+    }
   };
 
   const handleDeleteFile = async (filename: string) => {
@@ -268,6 +325,18 @@ export default function Home() {
             <Button onClick={handleSaveDialog}>Save</Button>
           </DialogActions>
         </Dialog>
+
+        {fileEditModalOpen && editingFile && (
+          <FileEditModal
+            open={fileEditModalOpen}
+            onClose={() => setFileEditModalOpen(false)}
+            filename={editingFile}
+            selectedRepo={repositories[parseInt(selectedRepo)]}
+            selectedEnv={selectedEnv}
+            selectedRegion={selectedRegion}
+            onSave={handleSaveFile}
+          />
+        )}
       </Box>
     </DndProvider>
   );

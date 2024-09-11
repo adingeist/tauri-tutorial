@@ -54,7 +54,7 @@ fn open_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn select_files(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+async fn select_files(_app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
     let (tx, rx) = channel();
 
     FileDialogBuilder::new()

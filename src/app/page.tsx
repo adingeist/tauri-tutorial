@@ -123,10 +123,18 @@ export default function Home() {
     handleCloseDialog();
   };
 
-  const handleDelete = async (index: number) => {
-    await deleteRepository(repositories[index]);
-    if (selectedRepo === index.toString()) {
-      setSelectedRepo('0');
+  const handleDeleteConfirm = async (index: number) => {
+    try {
+      await deleteRepository(repositories[index]);
+      if (selectedRepo === index.toString()) {
+        setSelectedRepo('0');
+      }
+    } catch (error) {
+      console.error('Error deleting repository:', error);
+      await message(`Error deleting repository: ${error}`, {
+        title: 'Error',
+        type: 'error',
+      });
     }
   };
 
@@ -202,27 +210,6 @@ export default function Home() {
     }
   };
 
-  const handleDeleteFile = async (filename: string) => {
-    try {
-      const filePath = await join(
-        'secrets',
-        repositories[parseInt(selectedRepo)],
-        selectedEnv,
-        selectedRegion,
-        filename
-      );
-      await removeFile(filePath, { dir: BaseDirectory.AppData });
-      console.log(`File ${filename} deleted successfully`);
-      // The EnvironmentColumn component will handle updating the files state and vault_mapping.json
-    } catch (error) {
-      console.error(`Error deleting file ${filename}:`, error);
-      await message(`Error deleting file: ${error}`, {
-        title: 'Error',
-        type: 'error',
-      });
-    }
-  };
-
   const handleAddFile = async () => {
     console.log('Adding file');
     // use tauri fs to multi-select files and copy to secrets/<repo>/<env>/<region>/ folder
@@ -270,7 +257,7 @@ export default function Home() {
               selectedRepo={selectedRepo}
               onSelectRepo={setSelectedRepo}
               onOpenDialog={handleOpenDialog}
-              onDelete={handleDelete}
+              onDeleteConfirm={handleDeleteConfirm}
               onShowFolder={handleShowFolder}
             />
           </Grid>
@@ -286,7 +273,6 @@ export default function Home() {
                   onEnvChange={handleEnvChange}
                   onRegionChange={handleRegionChange}
                   onViewFile={handleViewFile}
-                  onDeleteFile={handleDeleteFile}
                   onAddFile={handleAddFile}
                 />
               )}

@@ -33,15 +33,14 @@ import { UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { GetApp as GetAppIcon } from '@mui/icons-material';
 import { Publish as PublishIcon } from '@mui/icons-material';
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
-import { listen } from '@tauri-apps/api/event';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { copyFile } from '@tauri-apps/api/fs';
 import {
   VisibilityOutlined as ViewIcon,
   DeleteOutline as DeleteIcon,
 } from '@mui/icons-material';
-import { save } from '@tauri-apps/api/dialog';
+import { message, save } from '@tauri-apps/api/dialog';
 import { writeBinaryFile } from '@tauri-apps/api/fs';
-import { Command } from '@tauri-apps/api/shell';
 import JSZip from 'jszip';
 import { readBinaryFile } from '@tauri-apps/api/fs';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -79,7 +78,6 @@ interface EnvironmentColumnProps {
     newRegion: string | null
   ) => void;
   onViewFile: (filename: string) => void;
-  onDeleteFile: (filename: string) => void;
   onAddFile: () => void;
 }
 
@@ -148,7 +146,6 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   onEnvChange,
   onRegionChange,
   onViewFile,
-  onDeleteFile,
   onAddFile,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -337,13 +334,16 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   useEffect(() => {
     let dragCounter = 0;
 
-    const unlistenFileDrop = listen('tauri://file-drop', (event: any) => {
-      console.log('File drop event:', event);
-      setIsDragging(false);
-      if (event.payload) {
-        handleFileDrop(event.payload);
+    const unlistenFileDrop: Promise<UnlistenFn> = listen(
+      'tauri://file-drop',
+      (event) => {
+        console.log('File drop event:', event);
+        setIsDragging(false);
+        if (event.payload) {
+          handleFileDrop(event.payload as string[]);
+        }
       }
-    });
+    );
 
     const unlistenFileDragEnter = listen('tauri://file-drop-hover', () => {
       dragCounter++;
@@ -460,7 +460,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   );
 
   const handleKeyMappingChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     filename: string
   ) => {
     const newKeyMapping = event.target.value;

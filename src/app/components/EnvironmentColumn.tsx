@@ -17,6 +17,7 @@ import {
   MenuItem,
   SelectChangeEvent,
   TextField,
+  Tooltip,
 } from '@mui/material';
 import { TableCellProps } from '@mui/material';
 import {
@@ -45,6 +46,7 @@ import JSZip from 'jszip';
 import { readBinaryFile } from '@tauri-apps/api/fs';
 import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/dialog';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 export interface FileInfo {
   filename: string;
@@ -669,10 +671,30 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
                 <strong>Filename</strong>
               </TableCell>
               <TableCell width="25%">
-                <strong>Key Mapping</strong>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <strong>Key Mapping</strong>
+                  <Tooltip
+                    title="Type 'secret' files are referenced from a '.env*' config file. This value is the keyname that should reference this mounted file."
+                    arrow
+                  >
+                    <IconButton size="small" sx={{ ml: 0.5 }}>
+                      <HelpOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </TableCell>
               <TableCell width="20%">
-                <strong>Type</strong>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <strong>Type</strong>
+                  <Tooltip
+                    title={`'config' : Mounted file. Common type for '.env*' files. 'secret' : Mounted file that is referenced by a key in a '.env*' file. Common type for certificates, credentials, etc.`}
+                    arrow
+                  >
+                    <IconButton size="small" sx={{ ml: 0.5 }}>
+                      <HelpOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </TableCell>
               <TableCell width="30%">
                 <strong>Actions</strong>

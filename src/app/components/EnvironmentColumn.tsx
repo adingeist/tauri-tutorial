@@ -766,7 +766,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
           onClick={onAddFile}
           sx={{ textTransform: 'none', mb: 1 }}
         >
-          Add file
+          Drag and drop files here
         </Button>
         <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
           <Button

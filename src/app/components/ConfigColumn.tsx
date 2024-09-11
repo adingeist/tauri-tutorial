@@ -24,37 +24,42 @@ const ConfigColumn: React.FC<ConfigColumnProps> = ({
       <Typography variant="h5" component="h2" gutterBottom>
         Config
       </Typography>
-      {/* Removed namespace text */}
       <Typography variant="h6" component="h3" gutterBottom sx={{ mt: 2 }}>
         Secrets
       </Typography>
-      {files.map((file, index) => {
-        const path = `/etc/config/${repositories[parseInt(selectedRepo)]}/${
-          file.filename
-        }`;
-        return (
-          <Box key={index} sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              <strong>Secret:</strong> {file.filename}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Type:</strong> plaintext
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                <strong>MountPath:</strong> {path}
+      {files.length > 0 ? (
+        files.map((file, index) => {
+          const path = `/etc/config/${repositories[parseInt(selectedRepo)]}/${
+            file.filename
+          }`;
+          return (
+            <Box key={index} sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>Secret:</strong> {file.filename}
               </Typography>
-              <CopyButton text={path} />
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                <strong>VaultPath:</strong> {path}
+              <Typography variant="body2">
+                <strong>Type:</strong> plaintext
               </Typography>
-              <CopyButton text={path} />
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  <strong>MountPath:</strong> {path}
+                </Typography>
+                <CopyButton text={path} />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  <strong>VaultPath:</strong> {path}
+                </Typography>
+                <CopyButton text={path} />
+              </Box>
             </Box>
-          </Box>
-        );
-      })}
+          );
+        })
+      ) : (
+        <Typography variant="body1" sx={{ mt: 2, fontStyle: 'italic' }}>
+          No secrets added to this environment yet.
+        </Typography>
+      )}
     </Box>
   );
 };

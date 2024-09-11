@@ -78,7 +78,7 @@ interface EnvironmentColumnProps {
     newRegion: string | null
   ) => void;
   onViewFile: (filename: string) => void;
-  onAddFile: () => void;
+  onAddFile: () => Promise<void>;
 }
 
 function isSystemFile(filename: string): boolean {

@@ -41,11 +41,7 @@ export default function Home() {
   const [newRepoName, setNewRepoName] = useState('');
   const [selectedEnv, setSelectedEnv] = useState('dev');
   const [selectedRegion, setSelectedRegion] = useState('carbon_onprem_sadc');
-  const [files, setFiles] = useState<FileInfo[]>([
-    { filename: 'ES_PASSWORD', keyMapping: 'ES_PASSWORD_FILE', type: 'secret' },
-    { filename: '.env', keyMapping: '', type: 'config' },
-    { filename: 'ES_CRT', keyMapping: 'ES_CRT_LOCATION', type: 'secret' },
-  ]);
+  const [files, setFiles] = useState<FileInfo[]>([]);
   const [fileEditModalOpen, setFileEditModalOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<string | null>(null);
 
@@ -212,25 +208,41 @@ export default function Home() {
 
   const handleAddFile = async () => {
     console.log('Adding file');
-    // use tauri fs to multi-select files and copy to secrets/<repo>/<env>/<region>/ folder
-    // mutli-select file paths
-    const filePaths = (await invoke('select_files')) as string[];
-    console.log(filePaths);
-    // copy files to secrets/<repo>/<env>/<region>/
-    for (const filePath of filePaths) {
-      const filename = filePath.split('/').pop();
-      if (filename) {
-        const destPath = await join(
-          'secrets',
-          repositories[parseInt(selectedRepo)],
-          selectedEnv,
-          selectedRegion,
-          filename
-        );
-        await copyFile(filePath, destPath, {
-          dir: BaseDirectory.AppData,
-        });
+    try {
+      const filePaths = (await invoke('select_files')) as string[];
+      console.log(filePaths);
+      const newFiles: FileInfo[] = [];
+
+      for (const filePath of filePaths) {
+        const filename = filePath.split('/').pop();
+        if (filename) {
+          const destPath = await join(
+            'secrets',
+            repositories[parseInt(selectedRepo)],
+            selectedEnv,
+            selectedRegion,
+            filename
+          );
+          await copyFile(filePath, destPath, {
+            dir: BaseDirectory.AppData,
+          });
+
+          newFiles.push({
+            filename,
+            keyMapping: '',
+            type: 'secret',
+          });
+        }
       }
+
+      // Update the files state with the new files
+      setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    } catch (error) {
+      console.error('Error adding files:', error);
+      await message(`Error adding files: ${error}`, {
+        title: 'Error',
+        type: 'error',
+      });
     }
   };
 

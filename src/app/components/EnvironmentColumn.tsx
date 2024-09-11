@@ -135,6 +135,10 @@ const ScrollableTableCell = ({ children, ...props }: TableCellProps) => (
   </TableCell>
 );
 
+// Add this function to check if a file is vault_mapping.json
+const isVaultMappingFile = (filename: string) =>
+  filename === 'vault_mapping.json';
+
 const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   selectedRepo,
   selectedEnv,
@@ -151,6 +155,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   const [keyValidation, setKeyValidation] = useState<{
     [key: string]: boolean;
   }>({});
+  const [namespace, setNamespace] = useState('');
 
   const ensureDirectoryExists = async (path: string) => {
     console.log('ensureDirectoryExists', path);
@@ -177,6 +182,16 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     );
   }, [selectedRepo, selectedEnv, selectedRegion]);
 
+  const writeVaultMapping = useCallback(
+    async (mapping: VaultMapping) => {
+      const vaultMappingPath = await getVaultMappingPath();
+      await writeTextFile(vaultMappingPath, JSON.stringify(mapping, null, 2), {
+        dir: BaseDirectory.AppData,
+      });
+    },
+    [getVaultMappingPath]
+  );
+
   const readVaultMapping = useCallback(async (): Promise<VaultMapping> => {
     const vaultMappingPath = await getVaultMappingPath();
     const fileExists = await exists(vaultMappingPath, {
@@ -189,32 +204,28 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
       });
       return JSON.parse(content);
     } else {
-      return {
-        namespace: `${selectedRepo}-${selectedEnv}-${selectedRegion}`,
+      // Create a new vault mapping with a default namespace
+      const defaultMapping: VaultMapping = {
+        namespace: `${selectedRepo}-ns`,
         secrets: [],
       };
+      // Write the default mapping to the file
+      await writeVaultMapping(defaultMapping);
+      return defaultMapping;
     }
-  }, [getVaultMappingPath, selectedRepo, selectedEnv, selectedRegion]);
-
-  const writeVaultMapping = useCallback(
-    async (mapping: VaultMapping) => {
-      const vaultMappingPath = await getVaultMappingPath();
-      await writeTextFile(vaultMappingPath, JSON.stringify(mapping, null, 2), {
-        dir: BaseDirectory.AppData,
-      });
-    },
-    [getVaultMappingPath]
-  );
+  }, [getVaultMappingPath, selectedRepo, writeVaultMapping]);
 
   const updateVaultMapping = useCallback(
     async (files: FileInfo[]) => {
       const mapping = await readVaultMapping();
-      mapping.secrets = files.map((file) => ({
-        type: file.type,
-        localPath: file.filename,
-        vaultPath: file.vaultPath || file.filename,
-        ...(file.type === 'secret' && { keyName: file.keyMapping }),
-      }));
+      mapping.secrets = files
+        .filter((file) => !isVaultMappingFile(file.filename))
+        .map((file) => ({
+          type: file.type,
+          localPath: file.filename,
+          vaultPath: file.vaultPath || file.filename,
+          ...(file.type === 'secret' && { keyName: file.keyMapping }),
+        }));
       await writeVaultMapping(mapping);
     },
     [readVaultMapping, writeVaultMapping]
@@ -237,7 +248,11 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
         const vaultMapping = await readVaultMapping();
 
         const files: FileInfo[] = entries
-          .filter((entry) => !isSystemFile(entry.name || ''))
+          .filter(
+            (entry) =>
+              !isSystemFile(entry.name || '') &&
+              !isVaultMappingFile(entry.name || '')
+          )
           .map((entry) => {
             const filename = entry.name || 'unknown';
             const mappedSecret = vaultMapping.secrets.find(
@@ -267,9 +282,15 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     updateVaultMapping,
   ]);
 
+  const updateNamespace = useCallback(async () => {
+    const mapping = await readVaultMapping();
+    setNamespace(mapping.namespace);
+  }, [readVaultMapping]);
+
   useEffect(() => {
     fetchFiles();
-  }, [selectedRepo, selectedEnv, selectedRegion, fetchFiles]);
+    updateNamespace();
+  }, [selectedRepo, selectedEnv, selectedRegion, fetchFiles, updateNamespace]);
 
   const handleFileDrop = useCallback(
     async (filepaths: string[]) => {
@@ -467,6 +488,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     try {
       const zip = new JSZip();
 
+      // Add all files, including vault_mapping.json
       for (const file of files) {
         if (!isSystemFile(file.filename)) {
           const filePath = await join(
@@ -483,6 +505,13 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
           zip.file(file.filename, binaryContent);
         }
       }
+
+      // Explicitly add vault_mapping.json
+      const vaultMappingPath = await getVaultMappingPath();
+      const vaultMappingContent = await readBinaryFile(vaultMappingPath, {
+        dir: BaseDirectory.AppData,
+      });
+      zip.file('vault_mapping.json', vaultMappingContent);
 
       const zipContent = await zip.generateAsync({ type: 'uint8array' });
 
@@ -547,6 +576,16 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     }
   };
 
+  const handleNamespaceChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const newNamespace = event.target.value;
+    setNamespace(newNamespace);
+    const mapping = await readVaultMapping();
+    mapping.namespace = newNamespace;
+    await writeVaultMapping(mapping);
+  };
+
   return (
     <Box
       sx={{
@@ -607,6 +646,17 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
             GCP CENTRAL
           </ToggleButton>
         </ToggleButtonGroup>
+      </Box>
+      <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+        <Typography variant="body1" component="span" sx={{ mr: 1 }}>
+          Namespace:
+        </Typography>
+        <TextField
+          value={namespace}
+          onChange={handleNamespaceChange}
+          size="small"
+          fullWidth
+        />
       </Box>
       <TableContainer
         component={Paper}

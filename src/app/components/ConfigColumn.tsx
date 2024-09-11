@@ -24,9 +24,7 @@ const ConfigColumn: React.FC<ConfigColumnProps> = ({
       <Typography variant="h5" component="h2" gutterBottom>
         Config
       </Typography>
-      <Typography variant="body1" gutterBottom>
-        <strong>Namespace:</strong> home-data-ns
-      </Typography>
+      {/* Removed namespace text */}
       <Typography variant="h6" component="h3" gutterBottom sx={{ mt: 2 }}>
         Secrets
       </Typography>

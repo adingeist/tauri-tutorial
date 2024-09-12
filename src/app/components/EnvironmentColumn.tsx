@@ -80,7 +80,6 @@ interface EnvironmentColumnProps {
     newRegion: string | null
   ) => void;
   onViewFile: (filename: string) => void;
-  onAddFile: () => Promise<void>;
 }
 
 function isSystemFile(filename: string): boolean {
@@ -148,7 +147,6 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
   onEnvChange,
   onRegionChange,
   onViewFile,
-  onAddFile,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [keyValidation, setKeyValidation] = useState<{
@@ -291,9 +289,9 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     updateNamespace();
   }, [selectedRepo, selectedEnv, selectedRegion, fetchFiles, updateNamespace]);
 
-  const handleFileDrop = useCallback(
+  const addFilesToSecrets = useCallback(
     async (filepaths: string[]) => {
-      console.log('handleFileDrop', filepaths);
+      console.log('addFilesToSecrets', filepaths);
       const newFiles: FileInfo[] = [];
       for (const filepath of filepaths) {
         try {
@@ -323,15 +321,30 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
       setFiles(updatedFiles);
       await updateVaultMapping(updatedFiles);
     },
-    [
-      selectedRepo,
-      selectedEnv,
-      selectedRegion,
-      files,
-      setFiles,
-      updateVaultMapping,
-    ]
+    [selectedRepo, selectedEnv, selectedRegion, files, setFiles, updateVaultMapping]
   );
+
+  const handleFileDrop = useCallback(
+    async (filepaths: string[]) => {
+      await addFilesToSecrets(filepaths);
+    },
+    [addFilesToSecrets]
+  );
+
+  const handleAddFile = useCallback(async () => {
+    try {
+      const selected = await invoke('select_files') as string[];
+      if (selected.length > 0) {
+        await addFilesToSecrets(selected);
+      }
+    } catch (error) {
+      console.error('Error selecting files:', error);
+      await message(`Error selecting files: ${error}`, {
+        title: 'Error',
+        type: 'error',
+      });
+    }
+  }, [addFilesToSecrets]);
 
   useEffect(() => {
     let dragCounter = 0;
@@ -785,7 +798,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
       >
         <Button
           startIcon={<UploadFileIcon />}
-          onClick={onAddFile}
+          onClick={handleAddFile}
           sx={{ textTransform: 'none', mb: 1 }}
         >
           Drag and drop files here

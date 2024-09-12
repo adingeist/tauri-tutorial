@@ -285,7 +285,6 @@ export default function Home() {
                   onEnvChange={handleEnvChange}
                   onRegionChange={handleRegionChange}
                   onViewFile={handleViewFile}
-                  onAddFile={handleAddFile}
                 />
               )}
           </Grid>

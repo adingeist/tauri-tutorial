@@ -26,7 +26,7 @@ import {
   TextField,
   Button,
 } from '@mui/material';
-import { copyFile, removeFile } from '@tauri-apps/api/fs';
+import { removeFile } from '@tauri-apps/api/fs';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import FileEditModal from '@/app/components/FileEditModal';
@@ -203,46 +203,6 @@ export default function Home() {
           type: 'error',
         });
       }
-    }
-  };
-
-  const handleAddFile = async () => {
-    console.log('Adding file');
-    try {
-      const filePaths = (await invoke('select_files')) as string[];
-      console.log(filePaths);
-      const newFiles: FileInfo[] = [];
-
-      for (const filePath of filePaths) {
-        const filename = filePath.split('/').pop();
-        if (filename) {
-          const destPath = await join(
-            'secrets',
-            repositories[parseInt(selectedRepo)],
-            selectedEnv,
-            selectedRegion,
-            filename
-          );
-          await copyFile(filePath, destPath, {
-            dir: BaseDirectory.AppData,
-          });
-
-          newFiles.push({
-            filename,
-            keyMapping: '',
-            type: 'secret',
-          });
-        }
-      }
-
-      // Update the files state with the new files
-      setFiles((prevFiles) => [...prevFiles, ...newFiles]);
-    } catch (error) {
-      console.error('Error adding files:', error);
-      await message(`Error adding files: ${error}`, {
-        title: 'Error',
-        type: 'error',
-      });
     }
   };
 

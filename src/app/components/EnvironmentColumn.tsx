@@ -293,6 +293,10 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
     async (filepaths: string[]) => {
       console.log('addFilesToSecrets', filepaths);
       const newFiles: FileInfo[] = [];
+      const vaultMapping = await readVaultMapping();
+      let updatedFiles = [...files];
+      const updatedKeyValidation = { ...keyValidation };
+
       for (const filepath of filepaths) {
         try {
           const filename = filepath.split('/').pop() || 'unknown';
@@ -307,21 +311,106 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
             dir: BaseDirectory.AppData,
           });
           console.log(`File ${filename} copied successfully`);
-          newFiles.push({
+
+          const isEnvFile = filename.startsWith('.env');
+          const fileType = isEnvFile ? 'config' : 'secret';
+
+          let keyMapping = '';
+
+          if (fileType === 'secret') {
+            // Read through all .env files to find potential key mapping
+            const envFiles = vaultMapping.secrets.filter((s) =>
+              s.localPath.startsWith('.env')
+            );
+            for (const envFile of envFiles) {
+              const envContent = await readTextFile(
+                await join(
+                  'secrets',
+                  selectedRepo,
+                  selectedEnv,
+                  selectedRegion,
+                  envFile.localPath
+                ),
+                { dir: BaseDirectory.AppData }
+              );
+              const lines = envContent.split('\n');
+              for (const line of lines) {
+                const [key, value] = line.split('=');
+                if (value && value.includes(filename)) {
+                  keyMapping = key.trim();
+                  updatedKeyValidation[filename] = true;
+                  break;
+                }
+              }
+              if (keyMapping) break;
+            }
+          } else if (fileType === 'config') {
+            // Read through all secret files to find potential key mapping
+            const content = await readTextFile(destPath, {
+              dir: BaseDirectory.AppData,
+            });
+            const lines = content.split('\n');
+
+            const updateFileKeyMapping = async (
+              file: FileInfo
+            ): Promise<FileInfo> => {
+              if (file.type === 'secret' && !file.keyMapping) {
+                for (const line of lines) {
+                  const [key, value] = line.split('=');
+                  if (value && value.includes(file.filename)) {
+                    updatedKeyValidation[file.filename] = true;
+                    return { ...file, keyMapping: key.trim() };
+                  }
+                }
+              }
+              return file;
+            };
+
+            updatedFiles = await Promise.all(
+              updatedFiles.map(updateFileKeyMapping)
+            );
+          }
+
+          const newFile: FileInfo = {
             filename,
-            keyMapping: '',
-            type: 'config',
+            keyMapping,
+            type: fileType,
             vaultPath: filename,
+          };
+
+          newFiles.push(newFile);
+          updatedFiles.push(newFile);
+
+          if (fileType === 'secret') {
+            updatedKeyValidation[filename] = !!keyMapping;
+          }
+
+          vaultMapping.secrets.push({
+            type: fileType,
+            localPath: filename,
+            vaultPath: filename,
+            ...(fileType === 'secret' && keyMapping && { keyName: keyMapping }),
           });
         } catch (error) {
           console.error(`Error copying file ${filepath}:`, error);
         }
       }
-      const updatedFiles = [...files, ...newFiles];
+
       setFiles(updatedFiles);
-      await updateVaultMapping(updatedFiles);
+      setKeyValidation(updatedKeyValidation);
+      await writeVaultMapping(vaultMapping);
     },
-    [selectedRepo, selectedEnv, selectedRegion, files, setFiles, updateVaultMapping]
+    [
+      selectedRepo,
+      selectedEnv,
+      selectedRegion,
+      files,
+      setFiles,
+      keyValidation,
+      setKeyValidation,
+      readVaultMapping,
+      writeVaultMapping,
+    ]
   );
 
   const handleFileDrop = useCallback(
@@ -333,7 +422,7 @@ const EnvironmentColumn: React.FC<EnvironmentColumnProps> = ({
 
   const handleAddFile = useCallback(async () => {
     try {
-      const selected = await invoke('select_files') as string[];
+      const selected = (await invoke('select_files')) as string[];
       if (selected.length > 0) {
         await addFilesToSecrets(selected);
       }
